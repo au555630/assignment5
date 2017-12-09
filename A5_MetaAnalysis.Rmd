@@ -1,0 +1,248 @@
+---
+title: "Assignment 5 - Meta-analysis of pitch in schizophrenia"
+author: "Riccardo Fusaroli"
+date: "3/7/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Building on the shoulders of giants: meta-analysis
+
+## Questions to be answered
+
+1. What is the current evidence for distinctive patterns of pitch mean and pitch sd in schizophrenia? Report how many papers report quantitative estimates, your method to analyze them, the estimated effect size of the difference (mean effect size and standard error for pitch mean, same for pitch sd) and forest plots representing it. 
+
+2. Do the results match your own analysis from Assignment 3? If you add your results to the meta-analysis, do the estimated effect sizes change? Report the new estimates and the new forest plots.
+
+3. Assess the quality of the literature: report and comment on heterogeneity of the studies (tau, I2), on publication bias (funnel plot), and on influential studies.
+
+
+
+## Tips on the process to follow:
+
+- Download the data on all published articles analyzing pitch in schizophrenia: https://www.dropbox.com/s/pmgw8wzc308so1p/Data.csv?dl=
+
+```{r}
+port5_data= read.csv("Data.csv", sep= ";") 
+```
+
+
+- Following the procedure in the slides calculate effect size and standard error of the effect size per each study. N.B. we focus on pitch mean and pitch standard deviation.
+ . first try using lmer (to connect to what you know of mixed effects models)
+ . then use rma() (to get some juicy additional statistics)
+
+- Build a forest plot of the results (forest(model))
+
+
+```{r}
+
+#getting the effect size of mean for each study
+library(metafor)
+
+
+PitchRange_mean=escalc('SMD', n1i=SampleSizeSchizo, n2i=SampleSizeContros, m1i=PitchMeanSchizo, m2i=PitchMeanControls, sd1i=PitchMeanSchizoSD, sd2i=PitchMeanControlsSD, data = port5_data)
+
+PitchRange_sd=escalc('SMD', n1i=SampleSizeSchizo, n2i=SampleSizeContros, m1i=PitchSDSchizo, m2i=PitchSDControls, sd1i=PitchSDSchizoSD, sd2i=PitchSDControlsSD, data = port5_data)
+
+library(plyr)
+PitchRange_mean=rename(PitchRange_mean, replace= c("yi"= "yi_mean", "vi" = "vi_mean"))
+PitchRange_sd=rename(PitchRange_sd, replace= c("yi"= "yi_sd", "vi" = "vi_sd"))
+
+PitchRange=merge(PitchRange_mean, PitchRange_sd)
+
+#estimate overall effect
+
+library(lmerTest)
+
+model_mean <- lmer(yi_mean ~ 1 + (1 | Article), weights = 1/vi_mean, data=PitchRange, control=lmerControl(check.nobs.vs.nlev="ignore", check.nobs.vs.nRE="ignore"))
+
+model_sd <- lmer(yi_sd ~ 1 + (1 | Article), weights = 1/vi_sd, data=PitchRange, control=lmerControl(check.nobs.vs.nlev="ignore", check.nobs.vs.nRE="ignore"))
+
+summary(model_mean) #ß=0.1770 
+summary(model_sd) #ß=-0.1251 
+
+#meta analysis optimization
+rma_mean <- rma(yi=yi_mean, vi=vi_mean, data = PitchRange, slab=Article) #tau^2=0.0607 (SE = 0.1133), I^2=44.28%
+summary(rma_mean) #ß=0.1258
+forest(rma_mean) 
+
+rma_sd <- rma(yi=yi_sd, vi=vi_sd, data = PitchRange, slab=Article) 
+summary(rma_sd) #ß=0.3526
+forest(rma_sd) 
+
+```
+
+2. Do the results match your own analysis from Assignment 3? If you add your results to the meta-analysis, do the estimated effect sizes change? Report the new estimates and the new forest plots.
+
+- Go back to Assignment 3, add your own study to the data table, and re-run meta-analysis. Do the results change?
+
+```{r}
+assignment=data.frame(
+  
+  PitchMeanControls= 141.44690 ,
+  PitchMeanControlsSD= 49.23422 ,
+  PitchSDControls= 25.81702,
+  PitchSDControlsSD= 18.69103,
+  
+  PitchMeanSchizo= 149.49644, 
+  PitchMeanSchizoSD= 55.55556,
+  PitchSDSchizo= 22.88652 ,
+  PitchSDSchizoSD= 33.01128,
+  
+  Article= "assignment 3",
+  Year= 2017,
+  SampleSizeSchizo= 75,
+  SampleSizeContros= 74
+)
+
+
+
+# assignment3= as.data.frame(cbind(Article, Year, SampleSizeSchizo, SampleSizeContros, PitchMeanControls, PitchMeanControlsSD, PitchMeanSchizo, PitchMeanSchizoSD, PitchSDControls, PitchSDControlsSD,PitchSDSchizo,  PitchSDSchizoSD))
+
+
+up_port5_data= rbind(port5_data, assignment)
+```
+
+```{r}
+up_PitchRange_mean=escalc('SMD', n1i=SampleSizeSchizo, n2i=SampleSizeContros, m1i=PitchMeanSchizo, m2i=PitchMeanControls, sd1i=PitchMeanSchizoSD, sd2i=PitchMeanControlsSD, data = up_port5_data)
+
+up_PitchRange_sd=escalc('SMD', n1i=SampleSizeSchizo, n2i=SampleSizeContros, m1i=PitchSDSchizo, m2i=PitchSDControls, sd1i=PitchSDSchizoSD, sd2i=PitchSDControlsSD, data = up_port5_data)
+
+library(plyr)
+up_PitchRange_mean=rename(up_PitchRange_mean, replace= c("yi"= "yi_mean", "vi" = "vi_mean"))
+up_PitchRange_sd=rename(up_PitchRange_sd, replace= c("yi"= "yi_sd", "vi" = "vi_sd"))
+
+up_PitchRange=merge(up_PitchRange_mean, up_PitchRange_sd)
+
+#estimate overall effect
+
+library(lmerTest)
+
+model_meany <- lmer(yi_mean ~ 1 + (1 | Article), weights = 1/vi_mean, data=up_PitchRange, control=lmerControl(check.nobs.vs.nlev="ignore", check.nobs.vs.nRE="ignore"))
+
+model_sdy <- lmer(yi_sd ~ 1 + (1 | Article), weights = 1/vi_sd, data=up_PitchRange, control=lmerControl(check.nobs.vs.nlev="ignore", check.nobs.vs.nRE="ignore"))
+
+summary(model_meany) #ß=0.1721
+summary(model_sdy) #ß=-0.1197
+
+#meta analysis optimization
+rma_meany <- rma(yi=yi_mean, vi=vi_mean, data = up_PitchRange, slab=Article) 
+summary(rma_meany) # ß=0.1224
+forest(rma_meany) 
+
+rma_sdy <- rma(yi=yi_sd, vi=vi_sd, data = up_PitchRange, slab=Article) 
+summary(rma_sdy) #ß=0.2823
+forest(rma_sdy) 
+
+
+sum(port5_data$SampleSizeSchizo) #518
+sum(port5_data$SampleSizeContros, na.rm = T) #216
+```
+
+
+***
+
+3. Assess the quality of the literature: report and comment on heterogeneity of the studies (tau, I2), on publication bias (funnel plot), and on influential studies.
+
+- Now look at the output of rma() and check tau and I2
+
+```{r}
+#tau2, I2 and CIs
+rma_meany #tau^2=0.0208  I^2=26,15%  Q(df = 4) = 5.3130, p-val = 0.2567
+confint(rma_meany,0.95) #CIs for tau2: (0.0000 , 0.6371)
+
+rma_sdy #tau^2=3.4995  I^2=98,18%  Q(df = 6) = 129.4736, p-val < .0001
+confint(rma_sdy,0.95) #CIs: (1.3901 , 18.1178)
+
+#funne plots
+funnel(rma_meany, main = "Random-effects model (mean)",xlab = "Standardized mean difference")
+regtest(rma_meany,digits= 3) #not significant p = 0.454
+ranktest(rma_meany,digits= 3) #not significant = no publication bias p = 0.483
+
+funnel(rma_sdy, main = "Random-effects model (standard deviation)",xlab = "Standardized mean difference") 
+regtest(rma_sdy,digits=3) #significant  p = 0.003
+ranktest(rma_sdy) #?? p = 1.0000
+```
+
+
+```{r}
+# Testing for influential studies 
+#mean
+influential= influence(rma_meany) 
+print(influential) #Martinez et al 2015
+plot(influential)
+
+#sd
+influential= influence(rma_sdy) 
+print(influential) #Cohen et al. 2014
+plot(influential)
+
+#get them out, see what happens
+#create new data
+new_PitchRange = up_PitchRange
+
+#remove Martinez for mean but not sd
+new_PitchRange[12,13:14]=NA
+
+#remove Cohen 2014 for sd (remove the row as it has no measurements for mean)
+new_PitchRange = new_PitchRange[-10,]
+```
+
+Run rma() again to see how it looks like without the influential values
+
+```{r}
+#meta analysis optimization
+rma_meanz <- rma(yi=yi_mean, vi=vi_mean, data = new_PitchRange, slab=Article) 
+summary(rma_meanz) # ß= 0.2313
+forest(rma_meanz) 
+
+rma_sdz <- rma(yi=yi_sd, vi=vi_sd, data = new_PitchRange, slab=Article) 
+summary(rma_sdz) #ß=-0.3754
+forest(rma_sdz) 
+
+#tau2, I2 and CIs
+rma_meanz #tau^2=0  I^2=0%  Q(df = 3) = 0.6397, p-val = 0.8873
+confint(rma_meanz,0.95) #CIs for tau2: 0.0000  0.1169
+
+rma_sdz #tau^2=0.0267  I^2=31.63%  Q(df = 5) = 7.0540, p-val = 0.2167
+confint(rma_sdz,0.95) #CIs: (0.0000  0.4135)
+
+
+funnel(rma_meanz, main = "Random-effects model (mean)",xlab = "Standardized mean difference")
+regtest(rma_meanz,digits= 3) #not significant p = 0.427
+ranktest(rma_meanz,digits= 3) #not significant = no publication bias p = 0.333
+
+funnel(rma_sdz, main = "Random-effects model (standard deviation)",xlab = "Standardized mean difference") 
+regtest(rma_sdz,digits=3) #significant  p = 0.039
+ranktest(rma_sdz) #not significant p = 0.2722
+```
+
+
+Code to access data from assignment3:
+```{r}
+scizo=subset(port3_data, port3_data$diagnosis == 1)
+cont=subset(port3_data, port3_data$diagnosis == 0)
+mean_of_mean_scizo=mean(scizo$mean)
+sd_of_mean_scizo=sd(scizo$mean)
+mean_of_sd_scizo=mean(scizo$sd)
+sd_of_sd_scizo=sd(scizo$sd)
+
+port5_scizo= c(mean_of_mean_scizo, sd_of_mean_scizo, mean_of_sd_scizo, sd_of_sd_scizo)
+port5_scizo
+
+
+mean_of_mean_cont=mean(cont$mean)
+sd_of_mean_cont=sd(cont$mean)
+mean_of_sd_cont=mean(cont$sd)
+sd_of_sd_cont=sd(cont$sd)
+
+port5_cont= c(mean_of_mean_cont, sd_of_mean_cont, mean_of_sd_cont, sd_of_sd_cont)
+port5_cont
+
+length(unique(scizo$id_diff)) 
+length(unique(cont$id)) 
+
+```
